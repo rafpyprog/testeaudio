@@ -4,6 +4,7 @@ import time
 from audio import (save_captcha_audio, load_audio_captcha, click_download_audio,
                    check_download_finished)
 from browser import set_chrome, load_SIPAC
+from database import Database
 from image import save_captcha_image
 
 DATA_FOLDER = os.path.join(os.getcwd(), 'data')
@@ -47,10 +48,18 @@ class SIPAC():
 
 
 if __name__ == '__main__':
-    DATA_DIR = os.path.join(os.getcwd(), 'data')    
+    DATA_DIR = os.path.join(os.getcwd(), 'data')
+
+    db = Database()
+
     sipac = SIPAC(DATA_DIR)
     sipac.start()
 
-    for i in range(101, 1000):
+    for i in range(146, 156):
         filename = f'captcha_{str(i).zfill(3)}'
         sipac.save_data(filename=filename)
+
+        image_file = open(f'{filename}.png', 'rb').read()
+        audio_file = open(f'{filename}.wav', 'rb').read()
+
+        db.insert_captcha(image_file, audio_file)
