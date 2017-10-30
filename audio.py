@@ -6,8 +6,8 @@ import numpy as np
 
 LETTER_AUDIO_FILE = 'letter.wav'
 
-def file_info(filepath):
 
+def file_info(filepath):
     get_info = ['sox', '--info', filepath]
     process = Popen(get_info, stdout=PIPE, encoding='utf-8')
     info, err = process.communicate()
@@ -36,16 +36,30 @@ def count_letters(letter_audio_file):
 
 
 def assert_minimum_size(letters):
-    MIN_SIZE = 999
+    MIN_SIZE = 2500
     MAX_SIZE = 11000
-    valid_letters = list(filter(lambda x: MIN_SIZE < os.path.getsize(x) < MAX_SIZE, letters))
-    return len(valid_letters) == 6
+    SOUND_ERROR = 44
+    count = len(letters)
+    valid_letters_count = 0
+
+    if count >= 6:
+        for letter in letters:
+            size = os.path.getsize(letter)
+            if size == SOUND_ERROR:
+                os.remove(letter)
+                continue
+            if MIN_SIZE < size < MAX_SIZE:
+                valid_letters_count += 1
+            else:
+                return False
+
+    return valid_letters_count == 6
 
 
 def validate_results():
     LETTER_COUNT = 6
     letters = get_letters()
-    return len(letters) == LETTER_COUNT and assert_minimum_size(letters)
+    return assert_minimum_size(letters)
 
 
 def clean_up(letter_audio_file):
@@ -80,14 +94,6 @@ def process_capthcas(captchas, duration, threshold, target=0):
     conta_validos = 0
     performance = 0
     for n, captcha in enumerate(captchas):
-        # Verifica se pode atingir o target até o fim do processamento
-        #best = best_performance_at_end(len(captchas), n + 1, conta_validos)
-        #if can_beat_target(target, best) is False:
-        #    print('duration:', '{0:.4f}'.format(duration),
-        #          'threshold:', '{0:.4f}'.format(threshold),
-        #          "| Can't beat target.")
-        #    return False
-
         split_letters(captcha, duration, threshold)
         is_valid = validate_results(LETTER_AUDIO_FILE)
         if is_valid:
@@ -127,14 +133,12 @@ if __name__ == '__main__':
 
 
 def solve_captcha(captcha, clean=True):
-    MIN_DURATION, MAX_DURATION, STEP_DURATION = 0, 0.3 + 0.025, 0.025
-    #MIN_DURATION, MAX_DURATION, STEP_DURATION = 0, 0.15 + 0.025, 0.025
-    MIN_THRESHOLD, MAX_THRESHOLD, STEP_THRESHOLD = 6, 13.10 + 0.10, 0.10
+    MIN_DURATION, MAX_DURATION, STEP_DURATION = 0, 0.175 + 0.025, 0.025
+    MIN_THRESHOLD, MAX_THRESHOLD, STEP_THRESHOLD = 6.9, 13.10 + 0.10, 0.10
 
     for t in np.arange(MIN_THRESHOLD, MAX_THRESHOLD, STEP_THRESHOLD):
         for d in np.arange(MIN_DURATION, MAX_DURATION, STEP_DURATION):
             split_letters(captcha, d, t)
-            #print(t, d, count_letters(LETTER_AUDIO_FILE))
             solved = validate_results()
             if solved:
                 print('    Resultado:', d, t, 'SOLVED!')
@@ -145,6 +149,13 @@ def solve_captcha(captcha, clean=True):
     print('    Resultado:', 'NOT SOLVED.')
     return False
 
+
+def save_result(resultado, log='log.txt'):
+    with open(log, 'a') as f:
+        f.write('{0:.4f}%'.format(resultado[0]) + ';' +
+                '{0:.4f}%'.format(resultado[1]) + ';' + '\n')
+
+
 if __name__ == '__main__':
     stat_duration = [9999, 0]  # d, t
     stat_threshold = [9999, 0]
@@ -152,7 +163,8 @@ if __name__ == '__main__':
     performance = 0
 
     captchas = get_captchas()[:200]
-    #solve_captcha(captchas[93], clean=False)
+    #captchas[29]
+    #solve_captcha(captchas[29], clean=False)
 
     for n, c in enumerate(captchas):
         print(f'{n} - Solving {c}')
@@ -165,6 +177,7 @@ if __name__ == '__main__':
             stat_threshold[1] = max(stat_threshold[1], resultado[1])
 
             resolvidos += 1
+            save_result(resultado)
         performance = resolvidos / len(captchas) * 100
 
         print('Duration    :', stat_duration)
@@ -172,4 +185,4 @@ if __name__ == '__main__':
         print('Performance :', '{0:.2f}%'.format(performance))
 
 
-#69.5
+#70.5
