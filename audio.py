@@ -1,188 +1,116 @@
 import os
-import re
-from subprocess import Popen, PIPE
+import time
 
-import numpy as np
+import fire
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver import Chrome
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-LETTER_AUDIO_FILE = 'letter.wav'
-
-
-def file_info(filepath):
-    get_info = ['sox', '--info', filepath]
-    process = Popen(get_info, stdout=PIPE, encoding='utf-8')
-    info, err = process.communicate()
-    return info.splitlines()
+from browser import set_chrome, load_SIPAC
 
 
-def split_letters(audio_file, duration, threshold, output=LETTER_AUDIO_FILE,
-                  verbosity=2):
-    threshold = str(threshold) + '%'
-    cmd = (f'sox -V{verbosity} {audio_file} {output} silence 1 {duration} '
-           f'{threshold} 1 {duration} {threshold} : newfile : restart')
-    os.system(cmd)
+CAPTCHA_WAV = 'GerarSomCaptcha.wav'
 
 
-def get_letters():
-    LETTER_AUDIO_FILE = 'letter.wav'
-    name, extension = LETTER_AUDIO_FILE.split('.')
-    letters = [i for i in os.listdir() if i.startswith(name)]
-    return letters
+def check_too_many_requests_error():
+    global driver
+    TOO_MANY_REQUESTS = ('The remote server returned an error: (429) '
+                         'Too Many Requests.')
+    return TOO_MANY_REQUESTS in driver.page_source
 
 
-def count_letters(letter_audio_file):
-    name, extension = letter_audio_file.split('.')
-    count = len([i for i in os.listdir() if i.startswith(name)])
-    return count
+def load_audio_captcha(webdriverwait=2, wait_too_many_requests=5):
+    global driver
+    WAIT = WebDriverWait(driver, webdriverwait)
+    SOUND = ('https://www.receita.fazenda.gov.br/Aplicacoes/SSL/ATFLA/'
+             'Sipac.App/GerarSomCaptcha.aspx?sid=0.2556393534615946')
+    driver.get(SOUND)
+
+    try:
+        player = WAIT.until(
+                     EC.visibility_of_element_located((By.TAG_NAME, 'video')))
+        time.sleep(0.25)
+    except TimeoutException:
+        if check_too_many_requests_error() is True:
+            print('Too many requests.')
+            time.sleep(wait_too_many_requests)
+            # retry
+            load_SIPAC(driver)
+            player = load_audio_captcha()
+        else:
+            raise ConnectionError('Erro inesperado.')
+
+    return player
 
 
-def assert_minimum_size(letters):
-    MIN_SIZE = 2500
-    MAX_SIZE = 11000
-    SOUND_ERROR = 44
-    count = len(letters)
-    valid_letters_count = 0
-
-    if count >= 6:
-        for letter in letters:
-            size = os.path.getsize(letter)
-            if size == SOUND_ERROR:
-                os.remove(letter)
-                continue
-            if MIN_SIZE < size < MAX_SIZE:
-                valid_letters_count += 1
-            else:
-                return False
-
-    return valid_letters_count == 6
+def click_download_audio(player):
+    action = webdriver.common.action_chains.ActionChains(driver)
+    x, y = 270, -1
+    action.move_to_element_with_offset(player, x, -1)
+    action.click()
+    action.perform()
 
 
-def validate_results():
-    LETTER_COUNT = 6
-    letters = get_letters()
-    return assert_minimum_size(letters)
+def check_download_finished(timeout=2):
+    print('Waiting Download')
+    is_finished = False
+    elapsed_time = 0
+    start_time = time.time()
 
+    while is_finished is False and elapsed_time <= timeout:
+        files = [i for i in os.listdir() if i == 'GerarSomCaptcha.wav']
+        is_finished = bool(files)
+        elapsed_time = time.time() - start_time
 
-def clean_up(letter_audio_file):
-    name, extension = letter_audio_file.split('.')
-    letters = [i for i in os.listdir() if i.startswith(name)]
-    for i in letters:
-        filepath = os.path.join(os.getcwd(), i)
-        os.remove(filepath)
-
-
-def get_captchas():
-    pattern = '^captcha_\d{4}\.wav$'
-    cwd = os.getcwd()
-    captchas = [os.path.join(cwd, i) for i in os.listdir()
-                if re.match(pattern, i)]
-    return captchas
-
-
-def best_performance_at_end(total, processed, sucess):
-    remainign = total - processed
-    return (remainign + sucess) / total
-
-
-def can_beat_target(target, best_performance):
-    if best_performance < target:
-        return False
+    if is_finished:
+        print('Download realizado com sucesso.')
     else:
-        return True
+        print('Erro no Download.')
+
+    return is_finished
 
 
-def process_capthcas(captchas, duration, threshold, target=0):
-    conta_validos = 0
-    performance = 0
-    for n, captcha in enumerate(captchas):
-        split_letters(captcha, duration, threshold)
-        is_valid = validate_results(LETTER_AUDIO_FILE)
-        if is_valid:
-            conta_validos += 1
-
-        performance = conta_validos / len(captchas)
-        clean_up(LETTER_AUDIO_FILE)
-
-    print('duration:', '{0:.4f}'.format(duration),
-          'threshold:', '{0:.4f}'.format(threshold),
-          '| Performance:', '{0:.4f}'.format(performance),
-          'Target:', '{0:.4f}'.format(target))
-
-    return performance
+def get_captcha(delay=2.85):
+    global driver
+    load_SIPAC(driver)
+    time.sleep(delay)
+    player = load_audio_captcha()
+    click_download_audio(player)
 
 
-
-def log_performance(duration, threshold, performance, log='log.txt'):
-    formater = lambda x: '{0:.4f}'.format(x)
-    data = ';'.join([formater(i) for i in [duration, threshold, performance]])
-    with open(log, 'a') as f:
-        f.write(data + '\n')
-
-'''
-if __name__ == '__main__':
-    captchas = get_captchas()[:50]
-
-    target = 0
-    for t in np.arange(11.6, 12, 0.0005):
-        for d in np.arange(0.13, 0.141, 0.0005):
-            performance = process_capthcas(
-                            captchas, duration=d, threshold=t, target=target)
-            if performance is not False:
-                log_performance(d, t, performance)
-                target = max(target, performance)
-'''
+def save_captcha_audio(filename):
+    download_finished = False
+    while download_finished is False:
+        get_captcha()
+        download_finished = check_download_finished()
+    DOWNLOAD_NAME = 'GerarSomCaptcha.wav'
+    os.rename(DOWNLOAD_NAME, filename)
 
 
-def solve_captcha(captcha, clean=True):
-    MIN_DURATION, MAX_DURATION, STEP_DURATION = 0, 0.175 + 0.025, 0.025
-    MIN_THRESHOLD, MAX_THRESHOLD, STEP_THRESHOLD = 6.9, 13.10 + 0.10, 0.10
+def main(n=10, download_dir=None, overwrite=False):
+    os.chdir(download_dir)
+    global driver
+    try:
+        driver = set_chrome(download_dir=download_dir)
+        for i in range(0, n + 1):
+            print(f'\n{i}')
+            filename = f'captcha_{str(i).zfill(4)}.wav'
+            file_exists = os.path.isfile(filename)
 
-    for t in np.arange(MIN_THRESHOLD, MAX_THRESHOLD, STEP_THRESHOLD):
-        for d in np.arange(MIN_DURATION, MAX_DURATION, STEP_DURATION):
-            split_letters(captcha, d, t)
-            solved = validate_results()
-            if solved:
-                print('    Resultado:', d, t, 'SOLVED!')
-                if clean:
-                    clean_up(LETTER_AUDIO_FILE)
-                return d, t
-            clean_up(LETTER_AUDIO_FILE)
-    print('    Resultado:', 'NOT SOLVED.')
-    return False
+            if file_exists is False:
+                save_captcha_audio(filename)
+            elif file_exists is True and overwrite is True:
+                os.remove(path)
+                save_captcha_audio(filename)
+            else:
+                print(f'Overwrite is true. Skipping file {filename}.')
+    finally:
+        driver.quit()
 
-
-def save_result(resultado, log='log.txt'):
-    with open(log, 'a') as f:
-        f.write('{0:.4f}%'.format(resultado[0]) + ';' +
-                '{0:.4f}%'.format(resultado[1]) + ';' + '\n')
 
 
 if __name__ == '__main__':
-    stat_duration = [9999, 0]  # d, t
-    stat_threshold = [9999, 0]
-    resolvidos = 0
-    performance = 0
-
-    captchas = get_captchas()[:200]
-    #captchas[29]
-    #solve_captcha(captchas[29], clean=False)
-
-    for n, c in enumerate(captchas):
-        print(f'{n} - Solving {c}')
-        resultado = solve_captcha(c)
-        if resultado:
-            stat_duration[0] = min(stat_duration[0], resultado[0])
-            stat_duration[1] = max(stat_duration[1], resultado[0])
-
-            stat_threshold[0] = min(stat_threshold[0], resultado[1])
-            stat_threshold[1] = max(stat_threshold[1], resultado[1])
-
-            resolvidos += 1
-            save_result(resultado)
-        performance = resolvidos / len(captchas) * 100
-
-        print('Duration    :', stat_duration)
-        print('Threshold   :', stat_threshold)
-        print('Performance :', '{0:.2f}%'.format(performance))
-
-
-#70.5
+    fire.Fire(main)
