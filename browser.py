@@ -10,6 +10,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 def set_chrome(download_dir=None, headless=False):
     if not download_dir:
         download_dir = os.getcwd()
+    else:
+        if os.path.isabs(download_dir) is False:
+            download_dir = os.path.join(os.getcwd(), download_dir)
+            print(download_dir)
     options = ChromeOptions()
     prefs = {"download.default_directory": download_dir}
     options.add_experimental_option("prefs", prefs)

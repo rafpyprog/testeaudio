@@ -91,7 +91,15 @@ def save_captcha_audio(driver, filename):
 
 
 def main(n=10, download_dir=None, overwrite=False):
+    if download_dir:
+        if not os.path.isabs(download_dir):
+            download_dir = os.path.join(os.getcwd(), download_dir)
+    else:
+        download_dir = os.getcwd()
+
     os.chdir(download_dir)
+    print(download_dir)
+
     global driver
     try:
         driver = set_chrome(download_dir=download_dir)
@@ -101,10 +109,10 @@ def main(n=10, download_dir=None, overwrite=False):
             file_exists = os.path.isfile(filename)
 
             if file_exists is False:
-                save_captcha_audio(filename)
+                save_captcha_audio(driver, filename)
             elif file_exists is True and overwrite is True:
                 os.remove(path)
-                save_captcha_audio(filename)
+                save_captcha_audio(driver, filename)
             else:
                 print(f'Overwrite is true. Skipping file {filename}.')
     finally:
