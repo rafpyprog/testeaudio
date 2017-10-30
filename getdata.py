@@ -46,10 +46,11 @@ class SIPAC():
         os.rename(DOWNLOAD_NAME, filename)
 
 
-DATA_DIR = '/home/rafael/Documentos/Projetos/captcha-audio/data'
-sipac = SIPAC(DATA_DIR)
-sipac.start()
+if __name__ == '__main__':
+    DATA_DIR = '/home/rafael/Documentos/Projetos/captcha-audio/data'
+    sipac = SIPAC(DATA_DIR)
+    sipac.start()
 
-for i in range(11, 1000):
-    filename = f'captcha_{str(i).zfill(3)}'
-    sipac.save_data(filename=filename)
+    for i in range(11, 1000):
+        filename = f'captcha_{str(i).zfill(3)}'
+        sipac.save_data(filename=filename)
