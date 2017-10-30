@@ -1,9 +1,55 @@
 import os
+import time
 
-from audio import save_captcha_audio
-from browser import set_chrome
+from audio import (save_captcha_audio, load_audio_captcha, click_download_audio,
+                   check_download_finished)
+from browser import set_chrome, load_SIPAC
 from image import save_captcha_image
 
 DATA_FOLDER = os.path.join(os.getcwd(), 'data')
 
-driver = set_chrome(download_dir=DATA_FOLDER)
+
+class SIPAC():
+    def __init__(self, download_dir=None):
+        self.download_dir = download_dir
+        if self.download_dir:
+            os.chdir(self.download_dir)
+        self.driver = None
+
+    def start(self):
+        self.driver = set_chrome(self.download_dir)
+
+    def save_data(self, filename, delay=2.5):
+        self.save_image(filename)
+        time.sleep(delay)
+        audio_loaded = self.save_audio(filename)
+        if audio_loaded is False:
+            print('Não foi possível carregar o áudio, tentando novo captcha.')
+            self.save_data(filename)
+
+    def save_image(self, filename):
+        load_SIPAC(self.driver)
+        filename = filename + '.png'
+        save_captcha_image(self.driver, filename)
+
+    def save_audio(self, filename):
+        filename = filename + '.wav'
+        download_finished = False
+        while download_finished is False:
+            player = load_audio_captcha(self.driver, retry=False)
+            if not player:
+                return False
+            else:
+                click_download_audio(self.driver, player)
+                download_finished = check_download_finished()
+        DOWNLOAD_NAME = 'GerarSomCaptcha.wav'
+        os.rename(DOWNLOAD_NAME, filename)
+
+
+DATA_DIR = '/home/rafael/Documentos/Projetos/captcha-audio/data'
+sipac = SIPAC(DATA_DIR)
+sipac.start()
+
+for i in range(11, 1000):
+    filename = f'captcha_{str(i).zfill(3)}'
+    sipac.save_data(filename=filename)

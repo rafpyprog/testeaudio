@@ -7,17 +7,19 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
-def set_chrome(download_dir=None):
+def set_chrome(download_dir=None, headless=False):
     if not download_dir:
         download_dir = os.getcwd()
     options = ChromeOptions()
-    prefs = {"download.default_directory" : download_dir}
+    prefs = {"download.default_directory": download_dir}
     options.add_experimental_option("prefs", prefs)
+    if headless:
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
     return Chrome(chrome_options=options)
-    driver = Chrome()
 
 
-def load_SIPAC(driver, webdriverwait=5):    
+def load_SIPAC(driver, webdriverwait=5):
     WAIT = WebDriverWait(driver, webdriverwait)
     SIPAC = 'https://www.receita.fazenda.gov.br/Aplicacoes/SSL/ATFLA/Sipac.App/'
     driver.get(SIPAC)

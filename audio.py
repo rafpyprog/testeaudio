@@ -15,15 +15,13 @@ from browser import set_chrome, load_SIPAC
 CAPTCHA_WAV = 'GerarSomCaptcha.wav'
 
 
-def check_too_many_requests_error():
-    global driver
+def check_too_many_requests_error(driver):
     TOO_MANY_REQUESTS = ('The remote server returned an error: (429) '
                          'Too Many Requests.')
     return TOO_MANY_REQUESTS in driver.page_source
 
 
-def load_audio_captcha(webdriverwait=2, wait_too_many_requests=5):
-    global driver
+def load_audio_captcha(driver, webdriverwait=2, wait_too_many_requests=5, retry=True):
     WAIT = WebDriverWait(driver, webdriverwait)
     SOUND = ('https://www.receita.fazenda.gov.br/Aplicacoes/SSL/ATFLA/'
              'Sipac.App/GerarSomCaptcha.aspx?sid=0.2556393534615946')
@@ -34,19 +32,22 @@ def load_audio_captcha(webdriverwait=2, wait_too_many_requests=5):
                      EC.visibility_of_element_located((By.TAG_NAME, 'video')))
         time.sleep(0.25)
     except TimeoutException:
-        if check_too_many_requests_error() is True:
+        if not retry:
+            return False
+
+        if check_too_many_requests_error(driver) is True:
             print('Too many requests.')
             time.sleep(wait_too_many_requests)
             # retry
             load_SIPAC(driver)
-            player = load_audio_captcha()
+            player = load_audio_captcha(driver)
         else:
             raise ConnectionError('Erro inesperado.')
 
     return player
 
 
-def click_download_audio(player):
+def click_download_audio(driver, player):
     action = webdriver.common.action_chains.ActionChains(driver)
     x, y = 270, -1
     action.move_to_element_with_offset(player, x, -1)
@@ -73,18 +74,17 @@ def check_download_finished(timeout=2):
     return is_finished
 
 
-def get_captcha(delay=2.85):
-    global driver
+def get_captcha(driver, delay=2.85):
     load_SIPAC(driver)
     time.sleep(delay)
-    player = load_audio_captcha()
-    click_download_audio(player)
+    player = load_audio_captcha(driver)
+    click_download_audio(driver, player)
 
 
-def save_captcha_audio(filename):
+def save_captcha_audio(driver, filename):
     download_finished = False
     while download_finished is False:
-        get_captcha()
+        get_captcha(driver)
         download_finished = check_download_finished()
     DOWNLOAD_NAME = 'GerarSomCaptcha.wav'
     os.rename(DOWNLOAD_NAME, filename)
