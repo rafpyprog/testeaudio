@@ -55,11 +55,18 @@ if __name__ == '__main__':
     sipac = SIPAC(DATA_DIR)
     sipac.start()
 
-    for i in range(146, 156):
+    for i in range(0, 1000):
+        print(i)
         filename = f'captcha_{str(i).zfill(3)}'
         sipac.save_data(filename=filename)
 
-        image_file = open(f'{filename}.png', 'rb').read()
-        audio_file = open(f'{filename}.wav', 'rb').read()
+        image_file = f'{filename}.png'
+        audio_file = f'{filename}.wav'
 
-        db.insert_captcha(image_file, audio_file)
+        image_data = open(image_file, 'rb').read()
+        audio_data = open(audio_file, 'rb').read()
+
+        db.insert_captcha(image_data, audio_data)
+
+        os.remove(image_file)
+        os.remove(audio_file)
