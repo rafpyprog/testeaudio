@@ -1,21 +1,29 @@
+import io
 import os
 import re
 import time
 
-import matplotlib as
-from PIL import Image
-DATA_FOLDER = os.path.join(os.getcwd(), 'data')
-
-def get_images(path, select_labeled=False):
-    pattern = '^captcha_\d{1,4}\.png$'
-    if select_labeled:
-        pattern = '^captcha_\d{1,4}\_([a-z]|[0-9]){6}.png$'
-    images = filter(lambda x: re.match(pattern, x), os.listdir(DATA_FOLDER))
-    return [os.path.join(path, i) for i in sorted(list(images))]
-
-
 from IPython import display
-for i in range(0, 10):
-    time.sleep(1)
+from PIL import Image
+
+from database import Database
+
+
+def load_image(data):
+    im = io.BytesIO(data)
+    return Image.open(im)
+
+DATA_FOLDER = os.path.join(os.getcwd(), 'data')
+db = Database()
+
+unsolved_captchas = db.get_captchas(solution=False)
+
+##
+for n, captcha in enumerate(unsolved_captchas):
+    data = captcha[1]
+    image = load_image(data)
     display.clear_output()
-    display.display(Image.open(images[i]))
+    display.display(image)
+    i = input('Solução:')
+    if n == 10:
+        break

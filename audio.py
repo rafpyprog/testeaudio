@@ -10,7 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from browser import set_chrome, load_SIPAC
-
+from database import Database
 
 CAPTCHA_WAV = 'GerarSomCaptcha.wav'
 

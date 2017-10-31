@@ -1,4 +1,5 @@
 import os
+import tempfile
 import time
 
 from audio import (save_captcha_audio, load_audio_captcha, click_download_audio,
@@ -49,24 +50,26 @@ class SIPAC():
 
 if __name__ == '__main__':
     DATA_DIR = os.path.join(os.getcwd(), 'data')
+    with tempfile.TemporaryDirectory() as tmp_dir:                
+        db = Database()
 
-    db = Database()
+        sipac = SIPAC(tmp_dir)
+        sipac.start()
 
-    sipac = SIPAC(DATA_DIR)
-    sipac.start()
+        for i in range(0, 1000):
+            print(i)
+            filename = f'captcha_{str(i).zfill(3)}'
+            sipac.save_data(filename=filename)
 
-    for i in range(0, 1000):
-        print(i)
-        filename = f'captcha_{str(i).zfill(3)}'
-        sipac.save_data(filename=filename)
+            image_file = f'{filename}.png'
+            audio_file = f'{filename}.wav'
 
-        image_file = f'{filename}.png'
-        audio_file = f'{filename}.wav'
+            image_data = open(image_file, 'rb').read()
+            audio_data = open(audio_file, 'rb').read()
 
-        image_data = open(image_file, 'rb').read()
-        audio_data = open(audio_file, 'rb').read()
+            db.insert_captcha(image_data, audio_data)
 
-        db.insert_captcha(image_data, audio_data)
+            os.remove(image_file)
+            os.remove(audio_file)
 
-        os.remove(image_file)
-        os.remove(audio_file)
+    db.close()
